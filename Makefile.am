@@ -41,6 +41,7 @@ check_PROGRAMS = \
 	tests/test-memmove \
 	tests/test-memset \
 	tests/test-strchr \
+	tests/test-strrchr \
 	tests/test-strcmp \
 	tests/test-strcpy \
 	tests/test-strlen \
