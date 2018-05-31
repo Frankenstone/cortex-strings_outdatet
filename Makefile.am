@@ -293,7 +293,7 @@ libcortex_strings_la_SOURCES = \
 	src/sve/strcmp.S \
 	src/sve/strcpy.S \
 	src/sve/strlen.S \
-	src/aarch64/strncmp.S \
+	src/sve/strncmp.S \
 	src/aarch64/strnlen.S
 else
 libcortex_strings_la_SOURCES = \
