@@ -284,12 +284,10 @@ endif
 # aarch64 specific
 if HOST_AARCH64
 
+if WITH_SVE
 libcortex_strings_la_SOURCES = \
 	src/aarch64/memchr.S \
 	src/aarch64/memcmp.S \
-	src/aarch64/memcpy.S \
-	src/aarch64/memmove.S \
-	src/aarch64/memset.S \
 	src/aarch64/strchr.S \
 	src/aarch64/strchrnul.S \
 	src/aarch64/strcmp.S \
@@ -297,7 +295,23 @@ libcortex_strings_la_SOURCES = \
 	src/aarch64/strlen.S \
 	src/aarch64/strncmp.S \
 	src/aarch64/strnlen.S
+else
+libcortex_strings_la_SOURCES = \
+	src/aarch64/memchr.S \
+	src/aarch64/memcmp.S \
+	src/aarch64/strchr.S \
+	src/aarch64/strchrnul.S \
+	src/aarch64/strcmp.S \
+	src/aarch64/strcpy.S \
+	src/aarch64/strlen.S \
+	src/aarch64/strncmp.S \
+	src/aarch64/strnlen.S
+endif
 
+libcortex_strings_la_SOURCES += \
+	src/aarch64/memcpy.S \
+	src/aarch64/memmove.S \
+	src/aarch64/memset.S
 endif
 
 libcortex_strings_la_LDFLAGS = -version-info 1:0:0

@@ -85,4 +85,12 @@ AC_ARG_WITH([vfp],
 AC_SUBST(with_vfp)
 AM_CONDITIONAL(WITH_VFP, test x$with_vfp = xyes)
 
+AC_ARG_WITH([sve],
+            AC_HELP_STRING([--with-sve],
+                           [include SVE specific routines @<:@default=no@:>@]),
+	    [with_sve=$withval],
+	    [with_sve=no])
+AC_SUBST(with_sve)
+AM_CONDITIONAL(WITH_SVE, test x$with_sve = xyes)
+
 AC_OUTPUT
