@@ -294,7 +294,8 @@ libcortex_strings_la_SOURCES = \
 	src/sve/strcpy.S \
 	src/sve/strlen.S \
 	src/sve/strncmp.S \
-	src/sve/strnlen.S
+	src/sve/strnlen.S \
+	src/sve/strrchr.S
 else
 libcortex_strings_la_SOURCES = \
 	src/aarch64/memchr.S \
