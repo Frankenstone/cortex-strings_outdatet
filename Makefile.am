@@ -286,7 +286,7 @@ if HOST_AARCH64
 
 if WITH_SVE
 libcortex_strings_la_SOURCES = \
-	src/aarch64/memchr.S \
+	src/sve/memchr.S \
 	src/aarch64/memcmp.S \
 	src/sve/strchr.S \
 	src/sve/strchrnul.S \
