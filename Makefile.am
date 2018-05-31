@@ -290,7 +290,7 @@ libcortex_strings_la_SOURCES = \
 	src/aarch64/memcmp.S \
 	src/aarch64/strchr.S \
 	src/aarch64/strchrnul.S \
-	src/aarch64/strcmp.S \
+	src/sve/strcmp.S \
 	src/aarch64/strcpy.S \
 	src/sve/strlen.S \
 	src/aarch64/strncmp.S \
