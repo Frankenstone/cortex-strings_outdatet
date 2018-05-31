@@ -288,8 +288,8 @@ if WITH_SVE
 libcortex_strings_la_SOURCES = \
 	src/aarch64/memchr.S \
 	src/aarch64/memcmp.S \
-	src/aarch64/strchr.S \
-	src/aarch64/strchrnul.S \
+	src/sve/strchr.S \
+	src/sve/strchrnul.S \
 	src/sve/strcmp.S \
 	src/sve/strcpy.S \
 	src/sve/strlen.S \
