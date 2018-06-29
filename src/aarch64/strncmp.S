@@ -220,7 +220,6 @@ def_fn strncmp
 .Ldone:
 	sub	result, data1, data2
 	ret
-	.size strncmp, . - strncmp
 	/* Align the SRC1 to a dword by doing a bytewise compare and then do
 	   the dword loop.  */
 .Ltry_misaligned_words:
@@ -283,3 +282,4 @@ def_fn strncmp
 .Lret0:
 	mov	result, #0
 	ret
+	.size strncmp, . - strncmp
