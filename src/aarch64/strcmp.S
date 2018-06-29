@@ -193,3 +193,4 @@ L(loop_misaligned):
 L(done):
 	sub	result, data1, data2
 	ret
+	.size   strcmp, .-strcmp
