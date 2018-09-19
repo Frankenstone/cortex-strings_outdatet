@@ -88,14 +88,14 @@ strrchr:
 	b.any	4f
 
 	/* No C within last vector.  Did we have one before?  */
-	cbnz	x2, 5f
+	cbz	x2, 5f
 	mov	x0, x2			/* restore advanced base */
 	mov	p3.b, p2.b		/* restore saved search */
 
 	/* Find the *last* match in the predicate.  This is slightly
 	   more complicated than finding the first match.  */
 4:	rev	p3.b, p3.b		/* reverse the bits */
-	brka	p3.b, p3/z, p3.b	/* find position of last match */
+	brka	p3.b, p1/z, p3.b	/* find position of last match */
 	decp	x0, p3.b		/* retard pointer to last match */
 	ret
 
