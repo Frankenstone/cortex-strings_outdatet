@@ -18,29 +18,29 @@
    Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
    02111-1307 USA.  */
 
+#include <assert.h>
 #include <errno.h>
 #include <getopt.h>
 #include <malloc.h>
 #include <search.h>
 #include <signal.h>
-#include <stdio.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <sys/resource.h>
-#include <sys/wait.h>
 #include <sys/param.h>
+#include <sys/resource.h>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <sys/stat.h>
 #include <time.h>
+#include <unistd.h>
 
 /* The test function is normally called `do_test' and it is called
    with argc and argv as the arguments.  We nevertheless provide the
    possibility to overwrite this name.  */
 #ifndef TEST_FUNCTION
 # define TEST_FUNCTION do_test (argc, argv)
-#endif
-
-#ifndef TEST_DATA_LIMIT
-# define TEST_DATA_LIMIT (64 << 20) /* Data limit (bytes) to run with.  */
 #endif
 
 #define OPT_DIRECT 1000
@@ -61,6 +61,46 @@ static pid_t pid;
 
 /* Directory to place temporary files in.  */
 static const char *test_dir;
+unsigned int test_verbose = 0;
+
+/* Show people how to run the program.  */
+static void
+usage (const struct option *options)
+{
+  size_t i;
+
+  printf ("Usage: %s [options]\n"
+	  "\n"
+	  "Environment Variables:\n"
+	  "  TIMEOUTFACTOR	  An integer used to scale the timeout\n"
+	  "  TMPDIR		 Where to place temporary files\n"
+	  "  TEST_COREDUMPS	 Do not disable coredumps if set\n"
+	  "\n",
+	  program_invocation_short_name);
+  printf ("Options:\n");
+  for (i = 0; options[i].name; ++i)
+    {
+      int indent;
+
+      indent = printf ("  --%s", options[i].name);
+      if (options[i].has_arg == required_argument)
+	indent += printf (" <arg>");
+      printf ("%*s", 25 - indent, "");
+      switch (options[i].val)
+	{
+	case 'v':
+	  printf ("Increase the output verbosity");
+	  break;
+	case OPT_DIRECT:
+	  printf ("Run the test directly (instead of forking & monitoring)");
+	  break;
+	case OPT_TESTDIR:
+	  printf ("Override the TMPDIR env var");
+	  break;
+	}
+      printf ("\n");
+    }
+}
 
 /* List of temporary files.  */
 struct temp_name_list
@@ -129,15 +169,38 @@ create_temp_file (const char *base, char **filename)
   return fd;
 }
 
+static void
+print_timestamp (const char *what, struct timeval tv)
+{
+  struct tm tm;
+  if (gmtime_r (&tv.tv_sec, &tm) == NULL)
+    printf ("%s: %lld.%06d\n",
+	    what, (long long int) tv.tv_sec, (int) tv.tv_usec);
+  else
+    printf ("%s: %04d-%02d-%02dT%02d:%02d:%02d.%06d\n",
+	    what, 1900 + tm.tm_year, tm.tm_mon + 1, tm.tm_mday,
+	    tm.tm_hour, tm.tm_min, tm.tm_sec, (int) tv.tv_usec);
+}
+
 /* Timeout handler.  We kill the child and exit with an error.  */
 static void
 __attribute__ ((noreturn))
-signal_handler (int sig __attribute__ ((unused)))
+signal_handler (int sig)
 {
   int killed;
   int status;
 
-  /* Send signal.  */
+  /* Do this first to avoid further interference from the
+     subprocess.  */
+  struct timeval now;
+  bool now_available = gettimeofday (&now, NULL) == 0;
+  struct stat64 st;
+  bool st_available = fstat64 (STDOUT_FILENO, &st) == 0 && st.st_mtime != 0;
+
+  assert (pid > 1);
+  /* Kill the whole process group.  */
+  kill (-pid, SIGKILL);
+  /* In case setpgid failed in the child, kill it individually too.  */
   kill (pid, SIGKILL);
 
   /* Wait for it to terminate.  */
@@ -159,7 +222,7 @@ signal_handler (int sig __attribute__ ((unused)))
     }
   if (killed != 0 && killed != pid)
     {
-      perror ("Failed to kill test process");
+      printf ("Failed to kill test process: %m\n");
       exit (1);
     }
 
@@ -173,23 +236,24 @@ signal_handler (int sig __attribute__ ((unused)))
       raise (sig);
     }
 
-  /* If we expected this signal: good!  */
-#ifdef EXPECTED_SIGNAL
-  if (EXPECTED_SIGNAL == SIGALRM)
-    exit (0);
-#endif
-
   if (killed == 0 || (WIFSIGNALED (status) && WTERMSIG (status) == SIGKILL))
-    fputs ("Timed out: killed the child process\n", stderr);
+    puts ("Timed out: killed the child process");
   else if (WIFSTOPPED (status))
-    fprintf (stderr, "Timed out: the child process was %s\n",
-	     strsignal (WSTOPSIG (status)));
+    printf ("Timed out: the child process was %s\n",
+	    strsignal (WSTOPSIG (status)));
   else if (WIFSIGNALED (status))
-    fprintf (stderr, "Timed out: the child process got signal %s\n",
-	     strsignal (WTERMSIG (status)));
+    printf ("Timed out: the child process got signal %s\n",
+	    strsignal (WTERMSIG (status)));
   else
-    fprintf (stderr, "Timed out: killed the child process but it exited %d\n",
-	     WEXITSTATUS (status));
+    printf ("Timed out: killed the child process but it exited %d\n",
+	    WEXITSTATUS (status));
+
+  if (now_available)
+    print_timestamp ("Termination time", now);
+  if (st_available)
+    print_timestamp ("Last write to standard output",
+		     (struct timeval) { st.st_mtim.tv_sec,
+			 st.st_mtim.tv_nsec / 1000 });
 
   /* Exit with an error.  */
   exit (1);
@@ -205,18 +269,24 @@ main (int argc, char *argv[])
   unsigned int timeoutfactor = 1;
   pid_t termpid;
 
-  /* Make uses of freed and uninitialized memory known.  */
-  mallopt (M_PERTURB, 42);
-
-#ifdef STDOUT_UNBUFFERED
-  setbuf (stdout, NULL);
-#endif
+    {
+      /* Make uses of freed and uninitialized memory known.  Do not
+	 pull in a definition for mallopt if it has not been defined
+	 already.  */
+      extern __typeof__ (mallopt) mallopt __attribute__ ((weak));
+      if (mallopt != NULL)
+	mallopt (M_PERTURB, 42);
+    }
 
   while ((opt = getopt_long (argc, argv, "+", options, NULL)) != -1)
     switch (opt)
       {
       case '?':
+	usage (options);
 	exit (1);
+      case 'v':
+	++test_verbose;
+	break;
       case OPT_DIRECT:
 	direct = 1;
 	break;
@@ -248,7 +318,7 @@ main (int argc, char *argv[])
 
       if (chdir (test_dir) < 0)
 	{
-	  perror ("chdir");
+	  printf ("chdir: %m\n");
 	  exit (1);
 	}
     }
@@ -288,41 +358,27 @@ main (int argc, char *argv[])
   if (pid == 0)
     {
       /* This is the child.  */
-#ifdef RLIMIT_CORE
-      /* Try to avoid dumping core.  */
-      struct rlimit core_limit;
-      core_limit.rlim_cur = 0;
-      core_limit.rlim_max = 0;
-      setrlimit (RLIMIT_CORE, &core_limit);
-#endif
-
-#ifdef RLIMIT_DATA
-      /* Try to avoid eating all memory if a test leaks.  */
-      struct rlimit data_limit;
-      if (getrlimit (RLIMIT_DATA, &data_limit) == 0)
 	{
-	  if (TEST_DATA_LIMIT == RLIM_INFINITY)
-	    data_limit.rlim_cur = data_limit.rlim_max;
-	  else if (data_limit.rlim_cur > (rlim_t) TEST_DATA_LIMIT)
-	    data_limit.rlim_cur = MIN ((rlim_t) TEST_DATA_LIMIT,
-				       data_limit.rlim_max);
-	  if (setrlimit (RLIMIT_DATA, &data_limit) < 0)
-	    perror ("setrlimit: RLIMIT_DATA");
+	  /* Try to avoid dumping core.  This is necessary because we
+	     run the test from the source tree, and the coredumps
+	     would end up there (and not in the build tree).  */
+	  struct rlimit core_limit;
+	  core_limit.rlim_cur = 0;
+	  core_limit.rlim_max = 0;
+	  setrlimit (RLIMIT_CORE, &core_limit);
 	}
-      else
-	perror ("getrlimit: RLIMIT_DATA");
-#endif
 
       /* We put the test process in its own pgrp so that if it bogusly
 	 generates any job control signals, they won't hit the whole build.  */
-      setpgid (0, 0);
+      if (setpgid (0, 0) != 0)
+	printf ("Failed to set the process group ID: %m\n");
 
       /* Execute the test function and exit with the return value.   */
       exit (TEST_FUNCTION);
     }
   else if (pid < 0)
     {
-      perror ("Cannot fork test program");
+      printf ("Cannot fork test program: %m\n");
       exit (1);
     }
 
