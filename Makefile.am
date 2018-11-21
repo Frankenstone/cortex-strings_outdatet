@@ -49,7 +49,7 @@ check_PROGRAMS = \
 	tests/test-strnlen
 
 # Options for the tests
-tests_cflags = -I$(srcdir)/tests $(AM_CFLAGS)
+tests_cflags = -D_GNU_SOURCE -I$(srcdir)/tests $(AM_CFLAGS)
 tests_ldadd = libcortex-strings.la
 tests_test_memchr_LDADD = $(tests_ldadd)
 tests_test_memchr_CFLAGS = $(tests_cflags)
@@ -71,6 +71,10 @@ tests_test_strlen_LDADD = $(tests_ldadd)
 tests_test_strlen_CFLAGS = $(tests_cflags)
 tests_test_strncmp_LDADD = $(tests_ldadd)
 tests_test_strncmp_CFLAGS = $(tests_cflags)
+tests_test_strnlen_LDADD = $(tests_ldadd)
+tests_test_strnlen_CFLAGS = $(tests_cflags)
+tests_test_strrchr_LDADD = $(tests_ldadd)
+tests_test_strrchr_CFLAGS = $(tests_cflags)
 
 TESTS = $(check_PROGRAMS)
 
